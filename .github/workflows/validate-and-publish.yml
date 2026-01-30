@@ -22,20 +22,29 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build validator
         run: cargo build --release --manifest-path validator/Cargo.toml
 
       - name: Validate recommendations
         run: |
-          ./validator/target/release/validate recommendations --output recommendations.toml
+          ./validator/target/release/validate recommendations --output recommendations.toml --generate-docs book/src/recommendations.md
+
+      - name: Install mdbook
+        run: cargo install mdbook --locked
+
+      - name: Build book
+        run: mdbook build book
+
+      - name: Copy recommendations.toml to book output
+        run: cp recommendations.toml book/book/
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: book/book
 
   deploy:
     if: github.ref == 'refs/heads/main'

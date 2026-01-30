@@ -5,13 +5,13 @@
 use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use symposium_recommendations::{ComponentSource, Recommendations};
+use symposium_recommendations::{ComponentSource, Recommendation, Recommendations};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: validate <recommendations-dir> [--output <file>]");
+        eprintln!("Usage: validate <recommendations-dir> [--output <file>] [--generate-docs <file>]");
         std::process::exit(1);
     }
 
@@ -19,6 +19,10 @@ fn main() -> Result<()> {
     let output_file = args
         .iter()
         .position(|a| a == "--output")
+        .map(|i| PathBuf::from(&args[i + 1]));
+    let docs_file = args
+        .iter()
+        .position(|a| a == "--generate-docs")
         .map(|i| PathBuf::from(&args[i + 1]));
 
     // Discover all recommendation files
@@ -83,9 +87,78 @@ fn main() -> Result<()> {
 
         fs::write(&output, &combined)
             .with_context(|| format!("Failed to write {}", output.display()))?;
+
+        // Generate documentation if requested
+        if let Some(docs_path) = docs_file {
+            let docs = generate_docs(&parsed.mods);
+            fs::write(&docs_path, &docs)
+                .with_context(|| format!("Failed to write {}", docs_path.display()))?;
+            println!("Generated documentation at {}", docs_path.display());
+        }
     }
 
     Ok(())
+}
+
+fn generate_docs(recommendations: &[Recommendation]) -> String {
+    let mut doc = String::new();
+    doc.push_str("# Current Recommendations\n\n");
+    doc.push_str("This page is auto-generated from the recommendation files in this repository.\n\n");
+
+    for rec in recommendations {
+        let name = rec.display_name();
+        doc.push_str(&format!("## {}\n\n", name));
+
+        // Source info
+        match &rec.source {
+            ComponentSource::Cargo(cargo) => {
+                doc.push_str(&format!("**Install:** `cargo install {}`\n\n", cargo.crate_name));
+                if !cargo.args.is_empty() {
+                    doc.push_str(&format!("**Args:** `{}`\n\n", cargo.args.join(" ")));
+                }
+            }
+            ComponentSource::Npx(npx) => {
+                doc.push_str(&format!("**Install:** `npx {}`\n\n", npx.package));
+                if !npx.args.is_empty() {
+                    doc.push_str(&format!("**Args:** `{}`\n\n", npx.args.join(" ")));
+                }
+            }
+            ComponentSource::Pipx(pipx) => {
+                doc.push_str(&format!("**Install:** `pipx install {}`\n\n", pipx.package));
+                if !pipx.args.is_empty() {
+                    doc.push_str(&format!("**Args:** `{}`\n\n", pipx.args.join(" ")));
+                }
+            }
+            ComponentSource::Builtin(name) => {
+                doc.push_str(&format!("**Built-in:** `{}`\n\n", name));
+            }
+            ComponentSource::Registry(id) => {
+                doc.push_str(&format!("**Registry:** `{}`\n\n", id));
+            }
+            ComponentSource::Url(url) => {
+                doc.push_str(&format!("**URL:** `{}`\n\n", url));
+            }
+            _ => {}
+        }
+
+        // Conditions
+        if let Some(when) = &rec.when {
+            let explanations = when.explain_why_added();
+            if !explanations.is_empty() {
+                doc.push_str("**When:**\n");
+                for exp in explanations {
+                    doc.push_str(&format!("- {}\n", exp));
+                }
+                doc.push_str("\n");
+            }
+        } else {
+            doc.push_str("**When:** Always recommended\n\n");
+        }
+
+        doc.push_str("---\n\n");
+    }
+
+    doc
 }
 
 /// Discover all recommendation files in a directory.
