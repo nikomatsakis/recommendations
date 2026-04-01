@@ -1,8 +1,0 @@
-[book]
-title = "Symposium Recommendations"
-authors = ["Symposium Contributors"]
-language = "en"
-src = "src"
-
-[build]
-build-dir = "book"

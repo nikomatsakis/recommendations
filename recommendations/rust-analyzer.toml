@@ -1,6 +1,0 @@
-# Rust Analyzer - LSP integration for Rust
-# Recommended for Rust projects
-
-[recommendation]
-source.cargo = { crate = "symposium-rust-analyzer" }
-when.file-exists = "Cargo.toml"
