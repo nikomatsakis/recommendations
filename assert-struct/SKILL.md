@@ -2,7 +2,7 @@
 name: assert-struct-guidance
 description: Always use this skill before writing any test code in the Toasty repository
 advice-for: assert-struct
-activation: default
+activation: always
 ---
 
 The `assert-struct` crate helps to write concise assertions for the values of struct fields.
